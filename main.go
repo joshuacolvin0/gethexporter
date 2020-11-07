@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -21,6 +22,7 @@ var (
 	eth               *ethclient.Client
 	geth              *GethInfo
 	delay             int
+	prometheusListenAddress     string
 	watchingAddresses string
 	addresses         map[string]Address
 )
@@ -57,7 +59,15 @@ type Address struct {
 func main() {
 	var err error
 	defer eth.Close()
-	geth.GethServer = os.Getenv("GETH")
+	prometheusListenAddress = os.Getenv("PROMETHEUSLISTENADDRESS")
+	if prometheusListenAddress == "" {
+		prometheusListenAddress = ":9090"
+	}
+	gethServer := os.Getenv("GETH")
+	if gethServer == "" {
+		log.Fatal("Missing geth server address")
+	}
+	geth.GethServer = gethServer
 	watchingAddresses = os.Getenv("ADDRESSES")
 	delay, _ = strconv.Atoi(os.Getenv("DELAY"))
 	if delay == 0 {
@@ -75,10 +85,16 @@ func main() {
 
 	go Routine()
 
-	log.Printf("Geth Exporter running on http://localhost:9090/metrics\n")
+	log.Printf("Geth Exporter running on http://%s/metrics\n", prometheusListenAddress)
 
-	http.HandleFunc("/metrics", MetricsHttp)
-	err = http.ListenAndServe(":9090", nil)
+	sm := http.NewServeMux()
+	sm.HandleFunc("/metrics", MetricsHttp)
+	l, err := net.Listen("tcp4", prometheusListenAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	err = http.Serve(l, sm)
 	if err != nil {
 		panic(err)
 	}

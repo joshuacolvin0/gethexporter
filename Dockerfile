@@ -1,4 +1,4 @@
-FROM golang:1.11-alpine as base
+FROM golang:1.14.11-alpine3.11 as base
 RUN apk add --no-cache libstdc++ gcc g++ make git ca-certificates linux-headers
 MAINTAINER "Hunter Long (https://github.com/hunterlong)"
 WORKDIR /go/src/github.com/hunterlong/gethexporter
